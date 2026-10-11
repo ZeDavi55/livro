@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A História do Menino</title>
+    <style>
+        :root {
+            --book-width: 400px;
+            --book-height: 550px;
+            --cover-color: #241610; /* Couro escuro */
+            --gold-color: #d4af37; /* Letras douradas */
+            --paper-color: #f4ecd8; /* Papel envelhecido */
+            --text-color: #2b2b2b;
+            --transition-time: 0.8s;
+            
+            /* Textura de ruído gerada via SVG para simular o couro e o papel sem usar imagens externas */
+            --noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+        }
+
+        @media (max-width: 800px) {
+            :root {
+                --book-width: 90vw;
+                --book-height: 130vw;
+            }
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #3a2e28 0%, #120e0c 100%);
+            font-family: 'Garamond', 'Times New Roman', serif;
+            overflow: hidden;
+            perspective: 1800px; /* Profundidade do cenário 3D */
+        }
+
+        .scene {
+            position: relative;
+            width: var(--book-width);
+            height: var(--book-height);
+            transform-style: preserve-3d;
+        }
+
+        .book {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform var(--transition-time) cubic-bezier(0.645, 0.045, 0.355, 1);
+            box-shadow: 0 30px 50px rgba(0,0,0,0.7);
+            border-radius: 4px 15px 15px 4px;
+        }
+
+        .leaf {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform var(--transition-time) cubic-bezier(0.645, 0.045, 0.355, 1);
+            transform-origin: left center; /* O eixo de rotação é a lombada (esquerda) */
+            cursor: pointer;
+        }
+
+        /* Classe ativada pelo JS para virar a página */
+        .leaf.flipped {
+            transform: rotateY(-180deg);
+        }
+
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Esconde o outro lado da div */
+            background-color: var(--paper-color);
+            border-radius: 3px 15px 15px 3px;
+            overflow: hidden;
+        }
+
+        /* Textura de papel */
+        .page::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: var(--noise);
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .front {
+            transform: rotateY(0deg);
+            /* Sombra interna simulando a curva da página perto da lombada */
+            box-shadow: inset 15px 0 20px -10px rgba(0,0,0,0.15), inset -2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        .back {
+            transform: rotateY(180deg);
+            border-radius: 15px 3px 3px 15px;
+            box-shadow: inset -15px 0 20px -10px rgba(0,0,0,0.15), inset 2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        .cover {
+            background-color: var(--cover-color);
+            background-image: var(--noise);
+            color: var(--gold-color);
+            box-shadow: inset 20px 0 40px -10px rgba(0,0,0,0.6), inset -3px 0 10px rgba(255,255,255,0.1);
+        }
+        
+        .cover.back {
+            box-shadow: inset -20px 0 40px -10px rgba(0,0,0,0.6), inset 3px 0 10px rgba(255,255,255,0.1);
+        }
+
+        /* Detalhe da borda dourada na capa */
+        .cover::before {
+            content: '';
+            position: absolute;
+            top: 15px; bottom: 15px; left: 15px; right: 15px;
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            border-radius: inherit;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .content {
+            position: relative;
+            z-index: 2; /* Fica acima da textura do papel */
+            padding: 40px 35px;
+            height: 100%;
+            box-sizing: border-box;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* Custom Scrollbar para textos longos não vazarem */
+        .content::-webkit-scrollbar { width: 4px; }
+        .content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 2px; }
+
+        .cover-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+            z-index: 2;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            margin: 0;
+            line-height: 1.1;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.6);
+            padding: 0 20px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            text-align: center;
+            border-bottom: 1px solid #c9bca0;
+            padding-bottom: 10px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            text-align: justify;
+            text-indent: 25px;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        /* O famoso Drop Cap (Capitular) */
+        .content h2 + p::first-letter {
+            font-size: 3.8rem;
+            float: left;
+            line-height: 0.8;
+            padding-right: 8px;
+            padding-top: 4px;
+            color: var(--cover-color);
+            font-weight: bold;
+        }
+
+        /* Fim da página de conteúdo */
+        .end-text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 2rem;
+            color: #888;
+            font-style: italic;
+        }
+
+        /* Instrução inicial */
+        .hint {
+            position: absolute;
+            bottom: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.5);
+            font-style: italic;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scene">
+        <div class="book" id="book">
+            
+            <!-- Folha 0: Capa Principal -->
+            <div class="leaf">
+                <div class="page front cover">
+                    <div class="cover-content">
+                        <h1>A História<br>do Menino</h1>
+                    </div>
+                </div>
+                <div class="page back cover back">
+                    <!-- Verso da capa (Guarda do livro) -->
+                    <div class="content" style="background-color: #1a100b; opacity: 0.8;"></div>
+                </div>
+            </div>
+
+            <!-- Folha 1 -->
+            <div class="leaf">
+                <div class="page front">
+                    <div class="content">
+                        <h2>Capítulo 1:<br>O Mundo em Tons de Cinza</h2>
+                        <p>Era uma vez um menino que cresceu acreditando que havia nascido no lado errado do mundo. Desde muito criança, ele carregava uma convicção dolorosa: a de que o universo conspirava contra ele. Essa crença o transformou em um garoto recluso e, muitas vezes, explosivo. A raiva era a sua armadura. Ele acreditava que, se afastasse as pessoas primeiro com sua fúria, elas não teriam a chance de machucá-lo.</p>
+                        <p>Ele via inimigos onde não havia, sempre esperando o pior das intenções alheias. Essa muralha invisível que ele construiu ao redor de si o manteve seguro, mas também o aprisionou. Até o nono ano, sua companhia mais frequente foi o silêncio. Ele caminhava pelos corredores da escola como uma sombra solitária, sem amigos, sem ninguém com quem dividir os pesos da adolescência. A solidão não era uma escolha, era o único cenário que ele conhecia.</p>
+                    </div>
+                </div>
+                <div class="page back">
+                    <div class="content">
+                        <h2>Capítulo 2:<br>A Encruzilhada</h2>
+                        <p>O fim do ensino fundamental trouxe um novo desafio: a prova para ingressar em uma nova e prestigiada escola. Para um garoto que já duvidava do próprio valor, esse teste parecia uma montanha intransponível. A ansiedade o consumia, sussurrando que ele não era capaz, que iria fracassar como sempre imaginou que fracassaria. O desespero foi tanto que ele quis desistir de tudo, jogar a toalha e abandonar a escola.</p>
+                        <p>Foi nesse momento de escuridão quase total que um pequeno raio de luz apareceu. Uma pessoa cruzou seu caminho e, em vez de ignorá-lo como o resto do mundo, parou para conversar. Foram palavras simples, mas carregavam um peso imenso de incentivo. Aquela voz foi o suficiente para fazê-lo mudar de ideia, encarar o medo de frente e perceber que, talvez, a vida ainda pudesse surpreendê-lo.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folha 2 -->
+            <div class="leaf">
+                <div class="page front">
+                    <div class="content">
+                        <h2>Capítulo 3:<br>Um Clique no Escuro</h2>
+                        <p>A vida seguiu seu curso e, um dia qualquer, o menino estava rolando a tela do Instagram, perdido em pensamentos, quando uma foto prendeu sua atenção. Era uma garota. Ele não sabia explicar o porquê, mas sentiu um impulso irracional, uma força invisível que o fez apertar o botão de "seguir". Não havia um motivo lógico, foi apenas um instinto do coração.</p>
+                        <p>Pouco tempo depois, ele viu um story dela e, tomando uma coragem que nem sabia que possuía, decidiu enviar uma mensagem. Assim que apertou "enviar", o pânico tomou conta. Seus demônios antigos voltaram a gritar. Ele tinha um medo paralisante de que ela sentisse pena, nojo ou raiva dele por conta de sua deficiência. Temia que, assim que o conhecesse melhor, ela o deixasse de lado, julgando-o por se achar feio ou por estar acima do peso. Na cabeça dele, era apenas uma questão de tempo até que ela percebesse que ele não valia a pena.</p>
+                    </div>
+                </div>
+                <div class="page back">
+                    <div class="content">
+                        <h2>Capítulo 4:<br>A Descoberta das Cores</h2>
+                        <p>Mas a garota fez exatamente o oposto do que os medos dele previam. Ela não apenas o respondeu, como o acolheu de braços abertos. Ela não enxergou as inseguranças, os defeitos físicos ou a armadura de raiva; ela enxergou ele.</p>
+                        <p>Aos poucos, o menino percebeu que estava se apaixonando perdidamente. E não era por nenhum motivo fútil. Ele não a amava apenas por sua beleza ou porque ela parecia ter a vida ganha. Ele se apaixonou pela essência crua e verdadeira dela. Ela não tentava ser o que não era, não usava máscaras, não forçava uma personalidade para agradar os outros. Ela era incrivelmente autêntica: uma menina curiosa que queria entender o mundo, atenciosa com os detalhes, de uma esperteza fascinante e com uma força interior que ele admirava profundamente. Ao lado dela, o menino finalmente se sentiu suficiente.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folha 3 -->
+            <div class="leaf">
+                <div class="page front">
+                    <div class="content">
+                        <h2>Capítulo 5:<br>O Ônibus e a Promessa</h2>
+                        <p>Movido por esse amor avassalador que o transformara, ele decidiu que queria que ela fosse sua namorada oficialmente. A ansiedade e a inexperiência, no entanto, criaram um cenário inusitado. Em vez de um jantar romântico ou um parque ao pôr do sol, ele fez o pedido ali mesmo, no meio de um ônibus em movimento.</p>
+                        <p>Até hoje, quando o menino lembra daquela cena, ele sente uma pontada de vergonha e culpa. Ele acha que ela merecia algo de cinema, algo grandioso. Mas, na sua imperfeição e nervosismo, aquele foi o momento mais honesto de sua vida. O cenário balançava, mas o sentimento era inabalável.</p>
+                    </div>
+                </div>
+                <div class="page back">
+                    <div class="content">
+                        <h2>Capítulo 6:<br>O Inverno da Alma</h2>
+                        <p>Como toda história real, a deles não foi imune a falhas. Com o tempo, as diferenças e os medos geraram atritos. Houve um desacerto doloroso e, inevitavelmente, eles terminaram.</p>
+                        <p>O mundo do menino desabou. Ele se viu jogado de volta àquela solidão do nono ano, mas agora era infinitamente pior, porque ele havia conhecido o calor de ter alguém e agora estava congelando sem ela. Ele ficou completamente sem rumo. Meses se passaram em um borrão cinzento.</p>
+                        <p>Um dia, observando de longe, ele percebeu que ela estava bem. Ela parecia estar prosperando, vivendo sua vida com a força de sempre. Uma conclusão amarga tomou conta de seu coração: "Que bom que ela está bem de vida... parece que o problema, no fim das contas, sempre fui eu". Ele se resignou à dor, acreditando que a felicidade dela dependia da sua ausência.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folha 4 -->
+            <div class="leaf">
+                <div class="page front">
+                    <div class="content">
+                        <h2>Capítulo 7:<br>A Química Inexplicável</h2>
+                        <p>Apesar de achar que era um peso, a saudade foi maior que a culpa. Um dia, ele não aguentou e mandou uma mensagem simples, só para saber como ela estava. Ele não esperava muito, talvez uma resposta educada e fria.</p>
+                        <p>Mas o que aconteceu contrariou toda a lógica. Assim que as primeiras mensagens foram trocadas, aquele amor que estava adormecido despertou com a força de um furacão. Eles perceberam que, mesmo após meses de silêncio e distância, a conexão continuava intacta. Era uma química profunda, algo que a razão não conseguia explicar. Como nos velhos tempos, o tempo desapareceu, e eles voltaram a passar madrugadas inteiras conversando, perdidos nas palavras um do outro, como se nunca tivessem se separado.</p>
+                    </div>
+                </div>
+                <div class="page back">
+                    <div class="content">
+                        <h2>Capítulo 8:<br>O Esforço Contínuo</h2>
+                        <p>O menino não queria cometer o erro de perdê-la novamente. Ele engoliu qualquer orgulho, foi atrás dela de verdade, abriu o coração e os dois decidiram dar uma nova chance àquela história que nunca havia terminado de fato. Eles voltaram a namorar.</p>
+                        <p>Hoje, a história deles continua sendo escrita. O menino sabe que está longe de ser o príncipe de conto de fadas perfeito. Ele tenta, com todas as suas forças, dar o seu melhor para ser um bom namorado. É verdade que, muitas vezes, ele ainda tropeça nas próprias falhas e acaba repetindo velhos erros, teimoso em aprender algumas lições. Mas há uma diferença fundamental agora: ele não desiste de tentar. Ele acorda todos os dias disposto a enfrentar seus demônios, moldar suas atitudes e lutar para ser um homem melhor, não apenas por ele, mas para ser o refúgio seguro que a garota que o salvou da solidão tanto merece.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folha 5: Contracapa -->
+            <div class="leaf">
+                <div class="page front">
+                    <div class="end-text">
+                        <p style="text-indent: 0;">Fim.</p>
+                    </div>
+                </div>
+                <div class="page back cover back">
+                    <div class="cover-content">
+                        <!-- Design da contracapa -->
+                        <div style="width: 50px; height: 50px; border: 2px solid var(--gold-color); transform: rotate(45deg); opacity: 0.5;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="hint" id="hint">Clique na borda direita para abrir</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const leaves = document.querySelectorAll('.leaf');
+            const book = document.getElementById('book');
+            const hint = document.getElementById('hint');
+            
+            let currentLeafIndex = 0; // Marca qual página estamos olhando
+            const transitionDuration = 800; // 0.8s, deve coincidir com o CSS
+
+            // Função central: atualiza as posições do livro no espaço 3D para manter a lombada no lugar certo
+            function updateBookTransform() {
+                if (currentLeafIndex > 0) hint.style.opacity = '0'; // Esconde a dica após o primeiro clique
+
+                if (currentLeafIndex === 0) {
+                    // Livro fechado (Capa pra cima)
+                    book.style.transform = 'translateX(0) rotateX(15deg) rotateY(-10deg)';
+                } else if (currentLeafIndex === leaves.length) {
+                    // Livro fechado (Contracapa pra cima)
+                    book.style.transform = 'translateX(100%) rotateX(15deg) rotateY(10deg)';
+                } else {
+                    // Livro aberto (Lombada no centro)
+                    book.style.transform = 'translateX(50%) rotateX(5deg) rotateY(0deg)';
+                }
+            }
+
+            // Função central para resolver o Bug do Z-Index (Clipping)
+            function updateZIndexes() {
+                leaves.forEach((leaf, index) => {
+                    if (index < currentLeafIndex) {
+                        // Páginas que já foram viradas (pilha da esquerda). 
+                        // A última página virada precisa ter o maior z-index da esquerda.
+                        leaf.style.zIndex = index + 1;
+                    } else {
+                        // Páginas que ainda não foram viradas (pilha da direita).
+                        // A página do topo atual precisa ter o maior z-index da direita.
+                        leaf.style.zIndex = leaves.length - index;
+                    }
+                });
+            }
+
+            // Configuração Inicial
+            updateZIndexes();
+            updateBookTransform();
+
+            // Adicionando interatividade a cada folha
+            leaves.forEach((leaf, index) => {
+                const front = leaf.querySelector('.front');
+                const back = leaf.querySelector('.back');
+
+                // Clicar na frente vira a página para a esquerda
+                front.addEventListener('click', () => {
+                    // Apenas permite virar se for a página do topo da pilha da direita
+                    if (index === currentLeafIndex) {
+                        // MEGA HACK ANTICLIPPING: Dá um z-index gigantesco para a página enquanto ela viaja pelo ar
+                        leaf.style.zIndex = leaves.length + 100;
+                        
+                        leaf.classList.add('flipped');
+                        currentLeafIndex++;
+                        
+                        updateBookTransform();
+                        
+                        // Assim que a animação termina, re-organiza as pilhas corretamente
+                        setTimeout(updateZIndexes, transitionDuration);
+                    }
+                });
+
+                // Clicar no verso vira a página de volta para a direita
+                back.addEventListener('click', () => {
+                    // Apenas permite voltar se for a página do topo da pilha da esquerda
+                    if (index === currentLeafIndex - 1) {
+                        // MEGA HACK ANTICLIPPING
+                        leaf.style.zIndex = leaves.length + 100;
+                        
+                        leaf.classList.remove('flipped');
+                        currentLeafIndex--;
+                        
+                        updateBookTransform();
+                        
+                        setTimeout(updateZIndexes, transitionDuration);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
